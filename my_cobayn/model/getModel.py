@@ -1,19 +1,27 @@
+import pickle
 import warnings
+import os
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 import numpy as np
 import pandas as pd
-import networkx as nx
 from sklearn.decomposition import PCA
-from pgmpy.estimators import K2Score
 from pgmpy.estimators import MaximumLikelihoodEstimator
-from utils.learnStructMwst import learn_struct_mwst
+from pgmpy.estimators import MmhcEstimator
+# from utils.learnStructMwst import learn_struct_mwst
+# from utils.topologicalSort import topological_sort
+# from utils.learnStructK2 import learn_struct_K2
+# from utils.scoreDag import score_dags
 # from pgmpy.models import BayesianModel
-# from pgmpy.estimators import K2Score
+from pgmpy.estimators import K2Score
 # from pgmpy.estimators import BayesianEstimator
-# from pgmpy.estimators import PC, HillClimbSearch
+from pgmpy.estimators import HillClimbSearch
 # from pgmpy.estimators import StructureScore
 # from pgmpy.sampling import BayesianModelSampling
+from pgmpy.estimators import BayesianEstimator
+from pgmpy.models import BayesianNetwork
+
+
 
 def getModel(bestSet, metrics):
     bestPerBenchmark = 25
@@ -30,30 +38,71 @@ def getModel(bestSet, metrics):
     cleanMetricMatrix = cleanMetricMatrix[:, cleanMask]
 
     # Apply PCA
-    PCAlength = 5
+    PCAlength = 10
     pca = PCA(n_components=PCAlength)
     pcaData = pca.fit_transform(cleanMetricMatrix)
     pcaCoeff = pca.components_
     # print(pcaCoeff, pcaData)
-    trainData = np.concatenate((np.tile(pcaData[:, :PCAlength], (bestPerBenchmark, 1)), flagMatrix + 1), axis=1)
+    trainData = np.concatenate((np.tile(pcaData[:, :PCAlength], (bestPerBenchmark, 1)), flagMatrix), axis=1)
 
     # Build DAG
     Card = np.ones(PCAlength + flags)
     Card[PCAlength:] = 2
     discrete = PCAlength + np.arange(flags)
     types = ['gaussian'] * PCAlength + ['tabular'] * flags
+    trainData = pd.DataFrame.from_records(trainData)
+    # trainData = trainData.head(2)
+    # print(type(trainData[0]))
 
-    trainData = pd.DataFrame(trainData)
+    # if os.path.exists("data/test_train.pkl"):
+    #     with open("data/test_train.pkl", 'rb') as f:
+    #         trainData = pickle.load(f)
+    # else:
+    #     with open("data/test_train.pkl", 'wb') as f:
+    #         pickle.dump(trainData, f)
 
-    k2_score = K2Score(trainData)
+    if os.path.exists("data/skeleton.pkl"):
+        with open("data/skeleton.pkl", 'rb') as f:
+            skeleton = pickle.load(f)
+        # print("Part 1) Skeleton: ", skeleton.edges())
+    else:
+        mmhc = MmhcEstimator(trainData)
+        skeleton = mmhc.mmpc()
+        with open('data/skeleton.pkl', 'wb') as f:
+            pickle.dump(skeleton, f)
 
-    mwst_model = learn_struct_mwst(trainData)
-    order = list(nx.topological_sort(mwst_model))
-    dag = learn_struct_K2(trainData, Card, order, types, k2_score)
-    score = score_dags(trainData, Card, [dag], types, bic_score)
+    scoring_method = K2Score(data=trainData)
+    hc = HillClimbSearch(data=trainData)
+    model = hc.estimate(tabu_length=10, white_list=skeleton.to_directed().edges(), scoring_method=scoring_method)
+    # model = hc.estimate(scoring_method=scoring_method)
+
+    # print(type(model))
+    bn_model = BayesianNetwork(model.edges())
+    # print(bn_model.edges())
+
+
+    # # 最小生成树，连接所有节点且没有环
+    # mwst_mat = learn_struct_mwst(trainData)
+    
+    # # 确定节点间的处理顺序
+    # order = topological_sort(mwst_mat)
+    # # with open('data/test_train.pkl', 'wb') as f:
+    # #     pickle.dump(trainData, f)
+    # # with open('data/test_Card.pkl', 'wb') as f:
+    # #     pickle.dump(Card, f)
+    # # with open('data/test_order.pkl', 'wb') as f:
+    # #     pickle.dump(order, f)
+    # # 经过K2可以给每个节点选择最优的父节点
+    # dag = learn_struct_K2(trainData, Card, order)
+
+    # score = score_dags(trainData, Card, [dag], types)
+
+    # estimator = BayesianEstimator(bn_model, trainData)
+    # bn_model.fit(trainData, estimator=BayesianEstimator)
+    # for cpd in bn_model.get_cpds():
+    #     print(cpd)
 
     # Build Bayesian network
-    bnet = mk_bnet(dag, Card, types)
     for i in range(PCAlength + flags):
         if i < PCAlength:
             bnet.CPD[i] = GaussianCPD(bnet, i)

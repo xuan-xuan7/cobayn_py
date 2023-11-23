@@ -1,6 +1,7 @@
 import numpy as np
 import networkx as nx
 from pgmpy.estimators import BicScore
+from utils.mkRootedTree import mk_rooted_tree
 
 
 def learn_struct_mwst(data):
@@ -26,4 +27,6 @@ def learn_struct_mwst(data):
 
     model = nx.minimum_spanning_tree(G)
 
-    return model
+    T = mk_rooted_tree(model, 0)
+
+    return T
