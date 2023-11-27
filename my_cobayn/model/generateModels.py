@@ -44,16 +44,16 @@ print('Now, generating the cross-validation models for each application.')
 #     pass
 
 # Generate cross-validation models
-def trainBNmodel(a):
-    bestSet, _ = getBestSet(bench, bestPerBenchmark, a+1)
-    BNmodel_loo = HillClimbSearch(bestSet).estimate(scoring_method=BicScore(bestSet))
-    print(f'Application {a+1} is trained!')
-    return BNmodel_loo
+# def trainBNmodel(a):
+#     bestSet, _ = getBestSet(bench, bestPerBenchmark, a+1)
+#     BNmodel_loo = HillClimbSearch(bestSet).estimate(scoring_method=BicScore(bestSet))
+#     print(f'Application {a+1} is trained!')
+#     return BNmodel_loo
 
-num_apps = bench.shape[0]
-BNmodel_loo = pool.map(trainBNmodel, range(num_apps))
+# num_apps = bench.shape[0]
+# BNmodel_loo = pool.map(trainBNmodel, range(num_apps))
 
 print('BN validated with leave-one-out')
 
 # Save the models
-np.savez('data/models.npz', BNmodel_loo=BNmodel_loo, BNmodel=BNmodel)
+# np.savez('data/models.npz', BNmodel_loo=BNmodel_loo, BNmodel=BNmodel)

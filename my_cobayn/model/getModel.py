@@ -8,17 +8,8 @@ import pandas as pd
 from sklearn.decomposition import PCA
 from pgmpy.estimators import MaximumLikelihoodEstimator
 from pgmpy.estimators import MmhcEstimator
-# from utils.learnStructMwst import learn_struct_mwst
-# from utils.topologicalSort import topological_sort
-# from utils.learnStructK2 import learn_struct_K2
-# from utils.scoreDag import score_dags
-# from pgmpy.models import BayesianModel
 from pgmpy.estimators import K2Score
-# from pgmpy.estimators import BayesianEstimator
 from pgmpy.estimators import HillClimbSearch
-# from pgmpy.estimators import StructureScore
-# from pgmpy.sampling import BayesianModelSampling
-from pgmpy.estimators import BayesianEstimator
 from pgmpy.models import BayesianNetwork
 
 
@@ -103,24 +94,26 @@ def getModel(bestSet, metrics):
     #     print(cpd)
 
     # Build Bayesian network
-    for i in range(PCAlength + flags):
-        if i < PCAlength:
-            bnet.CPD[i] = GaussianCPD(bnet, i)
-        elif not np.isnan(parents(dag, i)):
-            bnet.CPD[i] = SoftmaxCPD(bnet, i)
-        else:
-            bnet.CPD[i] = TabularCPD(bnet, i)
+    # for i in range(PCAlength + flags):
+    #     if i < PCAlength:
+    #         bnet.CPD[i] = GaussianCPD(bnet, i)
+    #     elif not np.isnan(parents(dag, i)):
+    #         bnet.CPD[i] = SoftmaxCPD(bnet, i)
+    #     else:
+    #         bnet.CPD[i] = TabularCPD(bnet, i)
     
     # Learn parameters
-    mle = MaximumLikelihoodEstimator(bnet, trainData)
-    bnet = mle.estimate_parameters(trainData)
+    estimator = MaximumLikelihoodEstimator(bn_model, trainData)
+    print(estimator)
+    # cpds = estimator.get_parameters()
+    # print(cpds)
 
     # Return the model
-    model = {}
-    model['norm'] = {'mean': meanMetric, 'std': stdMetric, 'cleanMask': cleanMask}
-    model['pca'] = {'length': PCAlength, 'coeff': pcaCoeff, 'pcaData': pcaData}
-    model['trainData'] = {'trainData': trainData, 'bestSet': bestSet, 'metrics': metrics}
-    model['BN'] = {'dag': dag, 'score': score, 'bnet': bnet}
+    # model = {}
+    # model['norm'] = {'mean': meanMetric, 'std': stdMetric, 'cleanMask': cleanMask}
+    # model['pca'] = {'length': PCAlength, 'coeff': pcaCoeff, 'pcaData': pcaData}
+    # model['trainData'] = {'trainData': trainData, 'bestSet': bestSet, 'metrics': metrics}
+    # model['BN'] = {'dag': dag, 'score': score, 'bnet': bnet}
 
     return model
 
