@@ -6,12 +6,13 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA
-from pgmpy.estimators import MaximumLikelihoodEstimator
 from pgmpy.estimators import MmhcEstimator
 from pgmpy.estimators import K2Score
 from pgmpy.estimators import HillClimbSearch
 from pgmpy.models import BayesianNetwork
-
+from sklearn.preprocessing import StandardScaler
+from utils.getContinuousCPD import calculate_continuous_cpds
+from utils.getDiscreteCPD import calculate_discrete_cpd
 
 
 def getModel(bestSet, metrics):
@@ -29,21 +30,32 @@ def getModel(bestSet, metrics):
     cleanMetricMatrix = cleanMetricMatrix[:, cleanMask]
 
     # Apply PCA
-    PCAlength = 10
+    pca = PCA()
+    pcaData = pca.fit_transform(cleanMetricMatrix)
+    explained_variance_ratio = np.cumsum(pca.explained_variance_ratio_)
+    PCAlength = np.argmax(explained_variance_ratio >= 0.95) + 1
     pca = PCA(n_components=PCAlength)
     pcaData = pca.fit_transform(cleanMetricMatrix)
     pcaCoeff = pca.components_
-    # print(pcaCoeff, pcaData)
-    trainData = np.concatenate((np.tile(pcaData[:, :PCAlength], (bestPerBenchmark, 1)), flagMatrix), axis=1)
 
-    # Build DAG
-    Card = np.ones(PCAlength + flags)
-    Card[PCAlength:] = 2
-    discrete = PCAlength + np.arange(flags)
-    types = ['gaussian'] * PCAlength + ['tabular'] * flags
+    scaler = StandardScaler()
+    normalizedData = scaler.fit_transform(pcaData)
+
+    # print(pcaCoeff, pcaData)
+    trainData = np.concatenate((np.tile(normalizedData[:, :PCAlength], (bestPerBenchmark, 1)), flagMatrix), axis=1)
+
+    # np.savetxt("./data/trainData.csv", trainData, delimiter=',', header=header, comments='')
+    # trainData = pd.read_csv("./data/trainData.csv")
+    # # trainData = trainData.astype(int)
+    # print(trainData)
+    
+    # Card = np.ones(PCAlength + flags)
+    # Card[PCAlength:] = 2
+    # discrete = PCAlength + np.arange(flags)
+    types = [0] * PCAlength + [1] * flags
+    # print(types)
+
     trainData = pd.DataFrame.from_records(trainData)
-    # trainData = trainData.head(2)
-    # print(type(trainData[0]))
 
     # if os.path.exists("data/test_train.pkl"):
     #     with open("data/test_train.pkl", 'rb') as f:
@@ -65,48 +77,21 @@ def getModel(bestSet, metrics):
     scoring_method = K2Score(data=trainData)
     hc = HillClimbSearch(data=trainData)
     model = hc.estimate(tabu_length=10, white_list=skeleton.to_directed().edges(), scoring_method=scoring_method)
-    # model = hc.estimate(scoring_method=scoring_method)
 
-    # print(type(model))
     bn_model = BayesianNetwork(model.edges())
-    # print(bn_model.edges())
-
-
-    # # 最小生成树，连接所有节点且没有环
-    # mwst_mat = learn_struct_mwst(trainData)
-    
-    # # 确定节点间的处理顺序
-    # order = topological_sort(mwst_mat)
-    # # with open('data/test_train.pkl', 'wb') as f:
-    # #     pickle.dump(trainData, f)
-    # # with open('data/test_Card.pkl', 'wb') as f:
-    # #     pickle.dump(Card, f)
-    # # with open('data/test_order.pkl', 'wb') as f:
-    # #     pickle.dump(order, f)
-    # # 经过K2可以给每个节点选择最优的父节点
-    # dag = learn_struct_K2(trainData, Card, order)
-
-    # score = score_dags(trainData, Card, [dag], types)
-
-    # estimator = BayesianEstimator(bn_model, trainData)
-    # bn_model.fit(trainData, estimator=BayesianEstimator)
-    # for cpd in bn_model.get_cpds():
-    #     print(cpd)
-
-    # Build Bayesian network
-    # for i in range(PCAlength + flags):
-    #     if i < PCAlength:
-    #         bnet.CPD[i] = GaussianCPD(bnet, i)
-    #     elif not np.isnan(parents(dag, i)):
-    #         bnet.CPD[i] = SoftmaxCPD(bnet, i)
-    #     else:
-    #         bnet.CPD[i] = TabularCPD(bnet, i)
     
     # Learn parameters
-    estimator = MaximumLikelihoodEstimator(bn_model, trainData)
-    print(estimator)
-    # cpds = estimator.get_parameters()
-    # print(cpds)
+    # estimator = MaximumLikelihoodEstimator(bn_model, trainData)
+
+    cpds = {}
+    for i in range(PCAlength + flags):
+        if i < PCAlength:
+            continue
+            cpds[i] = calculate_continuous_cpds(trainData, bn_model, types, i)
+        else:
+            cpds[i] = calculate_discrete_cpd(trainData, bn_model, types, i)
+    # cpds = calculate_continuous_cpds(trainData, bn_model, types, 0)
+
 
     # Return the model
     # model = {}
@@ -114,8 +99,9 @@ def getModel(bestSet, metrics):
     # model['pca'] = {'length': PCAlength, 'coeff': pcaCoeff, 'pcaData': pcaData}
     # model['trainData'] = {'trainData': trainData, 'bestSet': bestSet, 'metrics': metrics}
     # model['BN'] = {'dag': dag, 'score': score, 'bnet': bnet}
+    # print(cpds)
 
-    return model
+    return bn_model
 
 # Example usage:
 # bestSet = ...  # Obtain the bestSet matrix
