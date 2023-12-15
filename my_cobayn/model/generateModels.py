@@ -1,8 +1,19 @@
+import os
 from dataProcessing.getBestSet import getBestSet
 from model.getModel import getModel
 
 import numpy as np
 import pickle
+
+# import atexit
+# import multiprocessing as mp
+
+# # 注册退出时执行的函数
+# @atexit.register
+# def cleanup():
+#     mp.sem_unlink(mp.get_context().SemLock._semlockname)
+
+
 # import multiprocessing
 # from pgmpy.estimators import HillClimbSearch, BicScore
 # from pgmpy.models import BayesianModel
@@ -44,16 +55,29 @@ print('Now, generating the cross-validation models for each application.')
 #     pass
 
 # Generate cross-validation models
-# def trainBNmodel(a):
-#     bestSet, _ = getBestSet(bench, bestPerBenchmark, a+1)
-#     BNmodel_loo = HillClimbSearch(bestSet).estimate(scoring_method=BicScore(bestSet))
-#     print(f'Application {a+1} is trained!')
-#     return BNmodel_loo
+def trainBNmodel(a):
+    bestSet, _ = getBestSet(bench, bestPerBenchmark, a+1)
+    BNmodel_loo = getModel(bestSet, micaMetrics)
+    print(f'Application {a+1} is trained!')
+    return BNmodel_loo
 
-# num_apps = bench.shape[0]
-# BNmodel_loo = pool.map(trainBNmodel, range(num_apps))
-
-print('BN validated with leave-one-out')
+num_apps = bench.shape[0]
+BNmodel_loo = []
+for a in range(num_apps):
+    BNmodel_loo[a] = map(trainBNmodel, a)
 
 # Save the models
 # np.savez('data/models.npz', BNmodel_loo=BNmodel_loo, BNmodel=BNmodel)
+if os.path.exists("data/BNmodel.pkl"):
+    pass
+else:
+    with open('data/BNmodel.pkl', 'wb') as f:
+        pickle.dump(BNmodel, f)
+
+if os.path.exists("data/BNmodel_loo.pkl"):
+    pass
+else:
+    with open('data/BNmodel_loo.pkl', 'wb') as f:
+        pickle.dump(BNmodel_loo, f)
+
+print('BN validated with leave-one-out')

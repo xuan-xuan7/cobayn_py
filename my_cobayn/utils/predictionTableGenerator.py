@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.io as sio
+from model.useModels import sampleModel
 
 iteration = []
 
@@ -9,7 +10,7 @@ iteration = []
 samples = 128
 
 # Generates the predictions
-predTable = useModels(samples, bench, BNmodel_loo)
+predTable = sampleModel(samples, bench, BNmodel_loo)
 
 # Sort out the prediction table into the different applications and save
 # them to COBAYN structure

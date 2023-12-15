@@ -57,6 +57,10 @@ def getModel(bestSet, metrics):
 
     trainData = pd.DataFrame.from_records(trainData)
 
+    float_columns = trainData.select_dtypes(include='float').columns
+    trainData[float_columns] = trainData[float_columns].applymap(lambda x: round(x, 2))
+
+
     # if os.path.exists("data/test_train.pkl"):
     #     with open("data/test_train.pkl", 'rb') as f:
     #         trainData = pickle.load(f)
@@ -64,15 +68,15 @@ def getModel(bestSet, metrics):
     #     with open("data/test_train.pkl", 'wb') as f:
     #         pickle.dump(trainData, f)
 
-    if os.path.exists("data/skeleton.pkl"):
-        with open("data/skeleton.pkl", 'rb') as f:
-            skeleton = pickle.load(f)
+    # if os.path.exists("data/skeleton.pkl"):
+    #     with open("data/skeleton.pkl", 'rb') as f:
+        # skeleton = pickle.load(f)
         # print("Part 1) Skeleton: ", skeleton.edges())
-    else:
-        mmhc = MmhcEstimator(trainData)
-        skeleton = mmhc.mmpc()
-        with open('data/skeleton.pkl', 'wb') as f:
-            pickle.dump(skeleton, f)
+    # else:
+    mmhc = MmhcEstimator(trainData)
+    skeleton = mmhc.mmpc()
+        # with open('data/skeleton.pkl', 'wb') as f:
+        #     pickle.dump(skeleton, f)
 
     scoring_method = K2Score(data=trainData)
     hc = HillClimbSearch(data=trainData)
@@ -86,12 +90,14 @@ def getModel(bestSet, metrics):
     cpds = {}
     for i in range(PCAlength + flags):
         if i < PCAlength:
-            continue
             cpds[i] = calculate_continuous_cpds(trainData, bn_model, types, i)
         else:
             cpds[i] = calculate_discrete_cpd(trainData, bn_model, types, i)
     # cpds = calculate_continuous_cpds(trainData, bn_model, types, 0)
 
+    model_cpds = {}
+    model_cpds["BN"] = bn_model
+    model_cpds["CPD"] = cpds
 
     # Return the model
     # model = {}
@@ -101,7 +107,7 @@ def getModel(bestSet, metrics):
     # model['BN'] = {'dag': dag, 'score': score, 'bnet': bnet}
     # print(cpds)
 
-    return bn_model
+    return model_cpds
 
 # Example usage:
 # bestSet = ...  # Obtain the bestSet matrix
